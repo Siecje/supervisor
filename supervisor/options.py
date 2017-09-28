@@ -429,6 +429,7 @@ class ServerOptions(Options):
         self.add("nodaemon", "supervisord.nodaemon", "n", "nodaemon", flag=1,
                  default=0)
         self.add("user", "supervisord.user", "u:", "user=")
+        self.add("group", "supervisord.group", "g:", "group=")
         self.add("umask", "supervisord.umask", "m:", "umask=",
                  octal_type, default='022')
         self.add("directory", "supervisord.directory", "d:", "directory=",
@@ -486,7 +487,7 @@ class ServerOptions(Options):
             except ValueError as msg:
                 self.usage(msg) # invalid user
             self.uid = uid
-            self.gid = gid_for_uid(uid)
+            self.gid = self.group else gid_for_uid(uid)
 
         if not self.loglevel:
             self.loglevel = section.loglevel
@@ -627,6 +628,7 @@ class ServerOptions(Options):
             section.directory = existing_directory(directory)
 
         section.user = get('user', None)
+        section.group = get('group', None)
         section.umask = octal_type(get('umask', '022'))
         section.logfile = existing_dirpath(get('logfile', 'supervisord.log'))
         section.logfile_maxbytes = byte_size(get('logfile_maxbytes', '50MB'))
@@ -1281,7 +1283,7 @@ class ServerOptions(Options):
             return 'Set uid to user %s' % self.uid
         return msg
 
-    def dropPrivileges(self, user):
+    def dropPrivileges(self, user, gid=None):
         # Drop root privileges if we have them
         if user is None:
             return "No user specified to setuid to!"
@@ -1313,7 +1315,7 @@ class ServerOptions(Options):
         if current_uid != 0:
             return "Can't drop privilege as nonroot user"
 
-        gid = pwrec[3]
+        gid = gid or pwrec[3]
         if hasattr(os, 'setgroups'):
             user = pwrec[0]
             groups = [grprec[2] for grprec in grp.getgrall() if user in
